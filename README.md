@@ -41,6 +41,5 @@ Options:
 
 - Also download and install additional models from Upscayl.
 - Include source audio in output.
-- Make download and installation of Real-ESRGAN and RIFE optional. (If they're already installed.)
 - Let the user choose install path.
 - Fix lighten when Real-ESRGAN is not used. (Pointless really.)
