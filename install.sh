@@ -24,7 +24,7 @@ get_latest_release () {
 INSTALL_PATH="/usr/local"
 
 # Install some dependencies
-if ! apt install curl ffmpeg rsync unzip util-linux wget -y; then
+if ! apt install curl ffmpeg imagemagick rsync unzip util-linux wget -y; then
 	warning "apt does not seem to be available on this system, make sure dependancies are met"
 fi
 
