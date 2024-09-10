@@ -1,0 +1,337 @@
+#! /bin/bash
+
+set -o errexit -o pipefail -o noclobber -o nounset
+
+LONGOPTS=fps:,model:,insize:,lighten:,size:,quality:,rife,noesrgan,tta,help
+OPTIONS=f:m:p:l:s:q:rnxh
+
+FPS=0
+LIGHTEN=n
+MODEL=RealESRGAN_General_WDN_x4_v3
+ESRGAN=y
+QUALITY=10
+RESOLUTION=n
+RIFE=n
+SLEEP=3 # Rest a few seconds between operations or bad things can happen
+TTA=
+
+HELP=$(cat <<-END
+Usage: videnh [OPTIONS] FILE
+
+Options:
+  -f --fps        Number of frames per second in the output video
+                  Default: same as input or double if RIFE is used
+  -m --model      ESRGAN model: realesrgan-x4plus, RealESRGAN_General_x4_v3 ... 
+                  Default: RealESRGAN_General_WDN_x4_v3
+  -n --noesrgan   Skip ESRGAN step.
+  -l --lighten    Opacity of the lighten layer in percent, e.g.: 75% 
+                  Default: n
+  -s --size       Resolution of the output image: [W]x[H][!]
+                  Default: 4x the original video
+  -q --quality    Quality of the H.264 output video: CRF 0-51
+                  Default: 10
+  -r --rife       Apply RIFE interpolation in order to double the frame rate.
+  -x --tta        Enable tta mode
+  -h --help
+END
+
+)
+
+# A simple progress bar. Call repeatedly to display a running progress bar.
+# Usage: progress_bar $CURRENT $MAX $INFO
+progress_bar () {
+	local CURRENT=$1
+	local END=$2
+	local RS='\033[0m'
+	local BG='\033[7m'
+	local ER='\e[1A\e[K'
+	
+	read -r WIDTH < <(tput cols)
+	local DIFFERENCE=$((END-CURRENT))
+	local PERCENT=$((CURRENT*100/END))
+	local LENGTH=$((CURRENT*WIDTH/END))
+	local TEXT="$PERCENT% $CURRENT:$DIFFERENCE$3"
+	local PADDING=$((LENGTH-${#TEXT}))
+	local LINE
+	LINE="$TEXT$(printf "%0.s " $(seq 1 "$PADDING"))"
+	
+	local LENGTH
+	LENGTH=$(( 0 > LENGTH ? 0 : LENGTH ))
+
+	echo -e "$ER$BG${LINE:0:LENGTH}$RS${LINE:LENGTH}$RS"
+}
+
+esrgan_progress () {
+	local FRAME=0
+	local FRAMECOUNT
+	FRAMECOUNT=$(find ./frames/ -type f -printf x | wc -c)
+	local START=$SECONDS
+	echo
+	while IFS= read -r l; do 
+		if [ "$l" == "0.00%" ]; then 
+			FRAME=$((FRAME+1))
+			ETA=$((((SECONDS-START)*1000/FRAME)*(FRAMECOUNT-FRAME)/1000))
+			progress_bar "$FRAME" "$FRAMECOUNT" "=${ETA}s ESRGAN"
+		fi; 
+	done
+}
+
+rife_progress () {
+	local FRAME=-13
+	local FRAMECOUNT
+	FRAMECOUNT=$(find ./esrgan/ -type f -printf x | wc -c)
+	local START=$SECONDS
+	FRAMECOUNT=$((FRAMECOUNT*2))
+	echo
+	while IFS= read -r l; do 
+		FRAME=$((FRAME+1))
+		ETA=0
+		if [ $FRAME -gt 0 ]; then 
+			ETA=$((((SECONDS-START)*1000/FRAME)*(FRAMECOUNT-FRAME)/1000))
+		fi
+		progress_bar $FRAME $FRAMECOUNT "=${ETA}s RIFE"
+	done
+}
+
+im_lighten () {
+	local FILE=$2
+	local LIGHTEN=$1
+	convert \
+		./frames/"$FILE" \
+		-filter Lanczos \
+		-resize 400% \
+		-channel A \
+		-evaluate set "$LIGHTEN" \
+		+channel \
+		./esrgan/"$FILE" \
+		+swap \
+		-compose Lighten \
+		-composite \
+		./esrgan/"$FILE"
+}
+export -f im_lighten
+
+! getopt --test > /dev/null
+if [[ ${PIPESTATUS[0]} -ne 4 ]]; then
+    echo "I’m sorry, 'getopt --test' failed in this environment."
+    exit 1
+fi
+
+! PARSED=$(getopt --options=$OPTIONS --longoptions=$LONGOPTS --name "$0" -- "$@")
+if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
+	# Invalid option
+    exit 2
+fi
+
+eval set -- "$PARSED"
+
+while true; do
+    case "$1" in
+        -f|--fps)
+            FPS=$2
+            shift 2
+            ;;
+        -m|--model)
+            MODEL=$2
+            shift 2
+            ;;
+        -n|--noesrgan)
+        	ESRGAN=n
+            shift 1
+            ;;
+        -l|--lighten)
+            LIGHTEN=$2
+            shift 2
+            ;;
+        -s|--size)
+            RESOLUTION=$2
+            shift 2
+            ;;
+        -q|--quality)
+            QUALITY=$2
+            shift 2
+            ;;
+        -r|--rife)
+            RIFE=y
+            shift 1
+            ;;
+        -x|--tta)
+            TTA=-x
+            shift 1
+            ;;
+        -h|--help)
+			echo "$HELP"
+            exit 0
+            ;;
+        --)
+            shift
+            break
+            ;;
+        *)
+            echo "Programming error"
+            exit 3
+            ;;
+    esac
+done
+
+# Print the help 
+if [[ $# -ne 1 ]]; then
+    echo "$HELP"
+    exit 0
+fi
+
+# If no FPS value was provided, set the output FPS to the one from the input video
+if [[ "$FPS" == "0" ]]; then
+	FPS="$(ffprobe "$1" 2>&1 | sed -n 's/.*, \(.*\) fp.*/\1/p' | head -1)"
+	# If RIFE is set to true, double the FPS
+    if [ $RIFE != n ]; then
+    	FPS="$(awk -vp="$FPS" 'BEGIN{printf "%.2f" ,p * 2}')"
+    fi
+fi
+
+# Create a temp folder to work in
+TMP="temp_$(tr -dc A-Za-z0-9 </dev/urandom | head -c 20 ; echo '')"
+INFILE=$(basename "${1%.*}")
+
+# If a file was given
+if [ -f "$1" ]; then
+    mkdir \
+    	"$TMP" \
+    	"$TMP"/out \
+    	"$TMP"/out/parts \
+    	"$TMP"/parts \
+    	"$TMP"/frames \
+    	"$TMP"/esrgan \
+    	"$TMP"/rife
+    
+    echo "$INFILE" >> "$TMP"/filename.txt
+    
+    ffmpeg -i "$1" \
+    	-acodec copy \
+    	-f segment \
+    	-vcodec copy \
+    	-reset_timestamps 1 \
+    	-map 0 \
+    	"$TMP"/parts/src%06d.mkv &> /dev/null
+    	
+    ! ffmpeg -i "$1" -vn -c:a copy "$TMP"/out.m4a &> /dev/null
+
+# If a directory was given
+elif [ -d "$1" ]; then
+    TMP=$1
+    if [ ! -d "$TMP/frames" ]; 
+    	then echo "Error: Missing $TMP/frames"; exit 1; fi
+    if [ ! -d "$TMP/esrgan" ]; 
+    	then echo "Error: Missing $TMP/esrgan"; exit 1; fi
+    if [ ! -d "$TMP/rife"   ]; 
+    	then echo "Error: Missing $TMP/rife";   exit 1; fi 
+    if [ ! -d "$TMP/parts"  ]; 
+    	then echo "Error: Missing $TMP/parts";  exit 1; fi
+    rm -f \
+    	"$TMP"/frames/* \
+    	"$TMP"/esrgan/* \
+    	"$TMP"/rife/*
+    if [ ! -f "$TMP/filename.txt" ]; 
+    	then echo "Error: Missing $TMP/filename.txt"; exit 1; fi
+    	
+    INFILE="$(<"$TMP"/filename.txt)"
+else
+    echo "Error: Argument neither file or directory."
+    exit 1  
+fi
+
+cd "$TMP"
+
+PARTS=$(find ./parts/ -type f -printf x | wc -c)
+echo "Number of parts: $PARTS"
+
+SECONDS=0
+COUNT=1
+
+# Main loop -- do the work!
+for PART in parts/*.mkv; do
+    echo "Processing: $(basename "$PART")"
+
+    if [ -f "out/$PART" ]; then
+    	# The video has already been processed
+        continue
+    fi
+
+	# Extract the frames from the video source
+    ffmpeg \
+    	-v warning \
+    	-hide_banner \
+    	-stats \
+    	-i "$PART" \
+    	frames/%08d.png &> /dev/null
+    
+    if [ "$ESRGAN" != n ]; then
+		# Process the frames with ESRGAN
+		realesrgan-ncnn-vulcan -i ./frames -o ./esrgan/ $TTA -j 1:1:2 -n "$MODEL" 2>&1 | esrgan_progress
+		sleep "$SLEEP"
+    else
+		# Skip the enhancement step and just move the frames into the ESRGAN folder
+		cp ./frames/* ./esrgan/
+    fi
+
+	if [ "$LIGHTEN" != n ]; then
+		# Overlay the ESRGAN processed frames with the original frame in lighten mode
+		parallel --bar im_lighten "$LIGHTEN" ::: \
+			"$(find ./frames/ -type f -printf "%f\n")"
+		sleep "$SLEEP"
+	fi
+
+	if [ "$RESOLUTION" != n ]; then
+		# Resize the processed frames to the the desired output resolution
+		parallel --bar mogrify -resize "$RESOLUTION" ./esrgan/"{1}" ::: \
+			"$(find ./frames/ -type f -printf "%f\n")"
+		sleep "$SLEEP"
+	fi
+    
+    if [ $RIFE != n ]; then
+		# Apply RIFE interpolation to the processed images, doubling the frame rate
+		rife-ncnn-vulcan -i ./esrgan/ -o ./rife/ -v -j 1:1:2 -m rife-v4 -u 2>&1 | rife_progress
+		sleep "$SLEEP"
+	else
+		# Skip the interpolation step and just move the frames into the RIFE folder
+		mv ./esrgan/* ./rife/
+    fi
+
+	# Merge the frames into a video
+    ffmpeg \
+    	-v warning \
+    	-hide_banner \
+    	-stats \
+    	-r "$FPS" \
+    	-f image2 \
+    	-i ./rife/%08d.png \
+    	-vcodec libx264 \
+    	-crf "$QUALITY" \
+    	-pix_fmt yuv420p \
+    	./out/"$PART" 2> /dev/null
+
+    rm -f \
+    	frames/* \
+    	esrgan/* \
+    	rife/*
+    
+    ETA=$(((SECONDS*1000/COUNT)*(PARTS-COUNT)/1000))
+    printf "Time left: "
+    date -u +"%T" -d "@${ETA}"
+    
+    COUNT=$((COUNT+1))
+done
+
+# Output all files to a text file for FFMPEG to combine in the next step
+for FILE in out/parts/*.mkv; do 
+    echo "file '$FILE'" >> list.txt
+done
+
+# Work is done. Create an output video and remove the temp folder 
+ffmpeg \
+	-f concat \
+	-safe 0 \
+	-i list.txt \
+	-c copy \
+	out/out.mkv &> /dev/null && mv out/out.mkv ../"$INFILE".enh.mkv && rm -r ../"$TMP"
+
