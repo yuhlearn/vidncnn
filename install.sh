@@ -59,7 +59,8 @@ get_latest_release () {
 		if [ -d "$DIRECTORY/$DIRECTORY" ]; then
 			if ! rsync -a ./"$DIRECTORY/$DIRECTORY" ./
 			then
-				echo "Failed to create the correct folder structure for '$DIRECTORY'"
+				warning "Failed to create the correct folder structure for '$DIRECTORY'"
+				return 4
 			fi
 		fi
 		chmod +x "$DIRECTORY/$EXECUTABLE"	
@@ -73,7 +74,7 @@ get_latest_release () {
 		echo "Successfully installed '$EXECUTABLE' to '$INSTALL_PATH'"
 	else
 		warning "Failed to install '$EXECUTABLE' to '$INSTALL_PATH'"
-		return 4
+		return 5
 	fi
 }
 
