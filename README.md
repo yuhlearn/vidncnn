@@ -12,7 +12,7 @@ curl ffmpeg imagemagick rsync unzip util-linux wget
 [Real-ESRGAN ncnn Vulkan](https://github.com/xinntao/Real-ESRGAN/),
 [RIFE ncnn Vulkan](https://github.com/nihui/rife-ncnn-vulkan)
 
-### Install:
+### Installation:
 
 First of all run `git clone https://github.com/yuhlearn/vidncnn.git && cd vidncnn` to get started.
 
