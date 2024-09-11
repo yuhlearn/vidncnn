@@ -14,7 +14,7 @@ curl ffmpeg imagemagick rsync unzip util-linux wget
 
 ### Install:
 
-Run the `install.sh` as superuser. If you don't have the APT package mager on your system, you first need to install the above packages excluding the ncnn implementations linked. The install script will download and install the ncnn Vulkan implementations of Real-ESRGAN and RIFE as well as the `videnh` script automatically to `/user/local/`.
+Run the `install.sh` as superuser. If you don't have the APT package mager on your system, you first need to install the above packages excluding the ncnn implementations linked. The install script will download and install the ncnn Vulkan implementations of Real-ESRGAN and RIFE as well as the `videnh` script and additional ERSGAN models from the Upscayl project automatically to `/user/local/`. The installation is guided and will let you download and install only the parts of the project you choose.
 
 ### Usage:
 ```
@@ -39,6 +39,7 @@ Options:
 
 ### TODO:
 
-- Include source audio in output.
+- Let the user choose which parts of the project to install from the command line.
 - Let the user choose install path.
+- Include source audio in output.
 - Fix lighten when Real-ESRGAN is not used. (Pointless really.)
