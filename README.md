@@ -4,7 +4,7 @@ A video enhancement tool using ncnn.
 
 ## videnh
 
-Use AI to enhance videos. Enhances the quality of the video with Real-ESRGAN, doubles the frame rate with RIFE interpolation and allows for custom output frame size, among other things. It uses ncnn Vulcan implementations of Real-ESRGAN and RIFE to be more platform independent. 
+Use AI to enhance videos. Enhances the quality of the video with Real-ESRGAN, doubles the frame rate with RIFE interpolation and allows for custom output frame size, among other things. It uses ncnn Vulkan implementations of Real-ESRGAN and RIFE to be more platform independent. 
 
 **Requirements:**
 
@@ -14,7 +14,7 @@ curl ffmpeg imagemagick rsync unzip util-linux wget
 
 ### Install:
 
-Run the `install.sh` as superuser. If you don't have the APT package mager on your system, you first need to install the above packages excluding the ncnn implementations linked. The install script will download and install the ncnn Vulcan implementations of Real-ESRGAN and RIFE as well as the `videnh` script automatically to `/user/local/`.
+Run the `install.sh` as superuser. If you don't have the APT package mager on your system, you first need to install the above packages excluding the ncnn implementations linked. The install script will download and install the ncnn Vulkan implementations of Real-ESRGAN and RIFE as well as the `videnh` script automatically to `/user/local/`.
 
 ### Usage:
 ```
@@ -39,7 +39,6 @@ Options:
 
 ### TODO:
 
-- Also download and install additional models from Upscayl.
 - Include source audio in output.
 - Let the user choose install path.
 - Fix lighten when Real-ESRGAN is not used. (Pointless really.)

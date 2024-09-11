@@ -267,7 +267,7 @@ for PART in parts/*.mkv; do
     
     if [ "$ESRGAN" != n ]; then
 		# Process the frames with ESRGAN
-		realesrgan-ncnn-vulcan -i ./frames -o ./esrgan/ $TTA -j 1:1:2 -n "$MODEL" 2>&1 | esrgan_progress
+		realesrgan-ncnn-vulkan -i ./frames -o ./esrgan/ $TTA -j 1:1:2 -n "$MODEL" 2>&1 | esrgan_progress
 		sleep "$SLEEP"
     else
 		# Skip the enhancement step and just move the frames into the ESRGAN folder
@@ -290,7 +290,7 @@ for PART in parts/*.mkv; do
     
     if [ $RIFE != n ]; then
 		# Apply RIFE interpolation to the processed images, doubling the frame rate
-		rife-ncnn-vulcan -i ./esrgan/ -o ./rife/ -v -j 1:1:2 -m rife-v4 -u 2>&1 | rife_progress
+		rife-ncnn-vulkan -i ./esrgan/ -o ./rife/ -v -j 1:1:2 -m rife-v4 -u 2>&1 | rife_progress
 		sleep "$SLEEP"
 	else
 		# Skip the interpolation step and just move the frames into the RIFE folder
