@@ -14,7 +14,15 @@ curl ffmpeg imagemagick rsync unzip util-linux wget
 
 ### Install:
 
-Run the `install.sh` as superuser. If you don't have the APT package mager on your system, you first need to install the above packages excluding the ncnn implementations linked. The install script will download and install the ncnn Vulkan implementations of Real-ESRGAN and RIFE as well as the `videnh` script and additional ERSGAN models from the Upscayl project automatically to `/user/local/`. The installation is guided and will let you download and install only the parts of the project you choose.
+First of all run `git clone https://github.com/yuhlearn/vidncnn.git && cd vidncnn` to get started.
+
+Run the `install.sh` script as superuser, i.e. `sudo ./install.sh`. If you don't have the APT package mager on your system, you first need to make sure you have the following packages installed: `curl ffmpeg imagemagick rsync unzip util-linux wget` 
+
+The install script will download and install the ncnn Vulkan implementations of Real-ESRGAN and RIFE as well as the `videnh` script and additional ERSGAN models from the Upscayl project automatically to `/user/local/`. 
+
+The installation is guided and will let you choose only the parts of the project you want. 
+
+It is safe to `git pull` new versions of the project and rerun the `install.sh` script in order to install new updates. 
 
 ### Usage:
 ```
