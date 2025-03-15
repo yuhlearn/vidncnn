@@ -10,7 +10,7 @@ LIGHTEN=n
 MODEL=RealESRGAN_General_WDN_x4_v3
 ESRGAN=y
 QUALITY=10
-RESOLUTION=n
+RESOLUTION=iw:ih
 RIFE=n
 SLEEP=3 # Rest a few seconds between operations or bad things can happen
 TTA=
@@ -26,7 +26,7 @@ Options:
   -n --noesrgan   Skip ESRGAN step.
   -l --lighten    Opacity of the lighten layer in percent, e.g.: 75% 
                   Default: n
-  -s --size       Resolution of the output image: [W]x[H][!]
+  -s --size       Resolution of the output image: [W]:[H] or ffmpeg 'scale' syntax.
                   Default: 4x the original video
   -q --quality    Quality of the H.264 output video: CRF 0-51
                   Default: 10
@@ -280,17 +280,10 @@ for PART in parts/*.mkv; do
 			"$(find ./frames/ -type f -printf "%f\n")"
 		sleep "$SLEEP"
 	fi
-
-	if [ "$RESOLUTION" != n ]; then
-		# Resize the processed frames to the the desired output resolution
-		parallel --bar mogrify -resize "$RESOLUTION" ./esrgan/"{1}" ::: \
-			"$(find ./frames/ -type f -printf "%f\n")"
-		sleep "$SLEEP"
-	fi
     
     if [ $RIFE != n ]; then
 		# Apply RIFE interpolation to the processed images, doubling the frame rate
-		rife-ncnn-vulkan -i ./esrgan/ -o ./rife/ -v -j 1:1:2 -m rife-v4 -u 2>&1 | rife_progress
+		rife-ncnn-vulkan -i ./esrgan/ -o ./rife/ $TTA -z -v -j 1:1:2 -m rife-v4 -u 2>&1 | rife_progress
 		sleep "$SLEEP"
 	else
 		# Skip the interpolation step and just move the frames into the RIFE folder
@@ -305,6 +298,7 @@ for PART in parts/*.mkv; do
     	-r "$FPS" \
     	-f image2 \
     	-i ./rife/%08d.png \
+    	-vf "scale=$RESOLUTION" \
     	-vcodec libx264 \
     	-crf "$QUALITY" \
     	-pix_fmt yuv420p \
