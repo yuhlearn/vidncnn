@@ -201,15 +201,15 @@ install_latest_esrgan_models() {
 	return 0
 }
 
-get_latest_ergan_models() {
+get_latest_esrgan_models() {
 	local ESRGAN_VERSION="$1"
 	local DIRECTORY="custom-models-main"
 	local ARCHIVE="$DIRECTORY.zip"
 	
 	if
-		download_latest_ergan_models "$ARCHIVE" &&
-		unzip_latest_ergan_models "$ARCHIVE" &&
-		install_latest_ergan_models "$ARCHIVE" "$DIRECTORY" "$ESRGAN_VERSION"
+		download_latest_esrgan_models "$ARCHIVE" &&
+		unzip_latest_esrgan_models "$ARCHIVE" &&
+		install_latest_esrgan_models "$ARCHIVE" "$DIRECTORY" "$ESRGAN_VERSION"
 	then 
 		return 0
 	fi
